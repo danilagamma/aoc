@@ -36,7 +36,7 @@ print(Map) ->
 print(Map, Y) ->
     Dots = [ X || {X, Y0} <- Map, Y0 =:= Y ],
     [ case lists:member(X, Dots) of
-          true  -> io:format("#");
-          false -> io:format(" ")
+          true  -> io:format("##");
+          false -> io:format("  ")
       end || X <- lists:seq(0, lists:max(Dots)) ],
     io:format("~n").
