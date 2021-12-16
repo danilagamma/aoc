@@ -10,82 +10,49 @@ main(File) ->
     io:format("part 1: ~p~n", [solve1(Map)]),
     io:format("part 2: ~p~n", [solve2(Map)]).
 
-lp() ->
-    F = "input/input15.txt",
-    {ok, RawData} = file:read_file(F),
-    Data = [ [ X - $0 || X <- binary_to_list(Line) ]
-             || Line <- binary:split(RawData, <<"\n">>, [global, trim]) ],
-    load(Data).
-
 load(Data) ->
     maps:from_list([ {{X, Y}, N} || {Y, Line} <- enum(Data),
-                      {X, N}                  <- enum(Line) ]).
+                                    {X, N}    <- enum(Line) ]).
 
 enum(List) ->
     lists:zip(lists:seq(1, length(List)), List).
 
 solve1(Map) ->
-    find_min(Map).
+    search(Map).
 
 solve2(Map) ->
-    find_min(expand(Map)).
+    search(expand(Map)).
 
-find_min(Map) ->
-    End      = lists:max(maps:keys(Map)),
-    Start    = {1, 1},
-    ToFollow = gb_sets:singleton({Start, 0}),
-    find_min(ToFollow, End, #{Start => ok}, inf, Map).
+search(Map) ->
+    End   = lists:max(maps:keys(Map)),
+    Start = {1, 1},
+    search([{0, Start}], End, #{}, inf, Map).
 
-find_min([],  _End, _Visited, Min, _Map) -> Min;
-find_min(Set,  End,  Visited, Min,  Map) ->
-    case gb_sets:is_empty(Set) of
-        true ->
-            Min;
+search([], _, _Seen, Best, _) ->
+    Best;
+search([{Len, End}|Rest], End, Seen, Best, Map) when Len < Best ->
+    NewBest = case Len < Best of
+                 true  -> Len;
+                 false -> Best
+             end,
+    search(Rest, End, Seen, NewBest, Map);
+search([{Len, Coord}|Rest], End, Seen, Best, Map) ->
+    case Len >= Best of
+        true  -> search(Rest, End, Seen, Best, Map);
         false ->
-            {{Coord, Len}, NewSet} = gb_sets:take_smallest(Set),
-            case Len > Min of
-                true  -> find_min(NewSet, End, Visited, Min, Map);
-                false ->
-                    case Coord of
-                        End -> find_min(NewSet, End, Visited, Len, Map);
-                        _   ->
-                            NewSet2 = lists:foldl(fun (C, Acc) -> gb_sets:add_element({C, Len + maps:get(C, Map)}, Acc) end,
-                                                  NewSet,
-                                                  adjacent_coords(Coord, End, Visited)),
-                            find_min(NewSet2, End, Visited#{Coord => ok}, Min, Map)
-                    end
-            end
+            NewSeen  = Seen#{Coord => ok},
+            ToFollow = lists:sort([ {Len + maps:get(C, Map), C} || C <- adjacent_coords(Coord, End, NewSeen) ]),
+            search(ordsets:union(ToFollow, Rest), End, NewSeen, Best, Map)
     end.
 
-dijkstra(Map) ->
-    End      = lists:max(maps:keys(Map)),
-    Start    = {1, 1},
-    dijkstra([{0, Start}], End, #{}, #{}, Map).
-
-dijkstra([], _, _, Acc, _) ->
-    Acc;
-dijkstra([{Len, Coord}|Rest], End, Seen, Acc, Map) ->
-    %io:format("~p~n", [Acc]),
-    Adjacent = [ {Len + maps:get(C, Map), C} || C <- adjacent_coords(Coord, End, Seen) ],
-    NewAcc = lists:foldl(fun ({C, L}, A) ->
-                                 case L < maps:get(C, Acc, inf) of
-                                     true  -> A#{C => L};
-                                     false -> A
-                                 end
-                         end,
-                         Acc,
-                         Adjacent),
-    dijkstra(lists:sort(Adjacent ++ Rest), End, Seen#{Coord => ok}, NewAcc#{Coord => Len}, Map).
-
-
-adjacent_coords({X, Y}, {EndX, EndY}, Visited) ->
+adjacent_coords({X, Y}, {EndX, EndY}, Seen) ->
     [ {A, B} || {A, B} <- [{X + 1, Y},
+                           {X, Y + 1},
                            {X - 1, Y},
-                           {X, Y - 1},
-                           {X, Y + 1}],
-                           A =< EndX, B =< EndY,
-                           A >= 1,    B >= 1,
-                           not maps:is_key({A, B}, Visited) ].
+                           {X, Y - 1}],
+                          A =< EndX, B =< EndY,
+                          A >= 1,    B >= 1,
+                          not maps:is_key({A, B}, Seen) ].
 
 wrap(V) ->
     max(1, V rem 10).
