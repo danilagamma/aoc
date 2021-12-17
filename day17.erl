@@ -17,7 +17,7 @@ solve2(Target) ->
 
 heights({_MinX, MaxX, MinY, _MaxY} = Target) ->
     [ H || X <- lists:seq(1, MaxX),
-           Y <- lists:seq(MinY, 1000),
+           Y <- lists:seq(MinY, abs(MinY)),
            (H = iter_steps({X, Y}, Target)) =/= false ].
 
 iter_steps(V, Target) ->
